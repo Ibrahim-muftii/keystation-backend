@@ -145,7 +145,7 @@ temp/
 # Uploads directory (if you have one)
 uploads/
 transcriptions/
-*.env
+.env
 # Build directories (if using build tools)
 dist/
 build/
