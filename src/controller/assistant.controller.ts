@@ -108,7 +108,7 @@ export const uploadFilesToVapi = async (req: Request, res: Response) => {
 
 				for (let i = 0; i < allFiles.length; i += batchSize) {
 					const batch = allFiles.slice(i, i + batchSize);
-					await uploadFilesInBatches(batch, apiKey.vapiKey, apiKey.elevenLabKey);
+					await uploadFilesInBatches(batch, apiKey.vapiKey, apiKey.elevenLabKey, apiKey.vapiAssistantId);
 					io.emit("uploadProgress", { jobId, progress: Math.min(allFiles.length, i + batchSize) });
 				}
 
@@ -152,9 +152,9 @@ export const upsertAssistant = async (req: Request, res: Response) => {
 		if (response.status === 201) {
 			await apiKeys.update({ vapiAssistantId: response.data.id })
 			const assistant = await Vapi.create({
-			vapiAssistantId: response.data.id,
-			vapiAssistantName: assistantObject.name,
-			userId: user?.id
+				vapiAssistantId: response.data.id,
+				vapiAssistantName: assistantObject.name,
+				userId: user?.id
 			})
 			return res.status(200).json({ message: "Assisstant Created Successfully..." })
 		}

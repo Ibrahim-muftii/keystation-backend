@@ -2,9 +2,12 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { sequelize } from './configs/database.config';
+
 import authenticationRoutes from './router/authentication.router';
 import assistantRoutes from './router/assistant.router';
 import userRoutes from './router/user.router';
+import magentoRoutes from './router/magento.router';
+
 import { runAssocations } from './models/associations';
 import { SetupSocket } from './configs/socketIo.config';
 
@@ -36,11 +39,12 @@ app.use(cors({
   origin: [process.env.CLIENT_URL as string],
   credentials: true
 }));
-
 app.use(express.json());
+
 app.use('/authentication', authenticationRoutes);
 app.use('/assistant', assistantRoutes);
 app.use('/user', userRoutes);
+app.use('/magento', magentoRoutes);
 
 server.listen(process.env.PORT, async () => {
   console.log(`App listening on port ${process.env.PORT}`);
