@@ -77,7 +77,7 @@ export const register = async (req:Request, res:Response) => {
 
 export const authenticateMagento = async (req:Request, res:Response) => {
     try{    
-        const magentoUrl: string = 'https://keystation.co.uk/ksbackend/rest/V1/';
+        const magentoUrl: string = 'https://keystation.co.uk/rest/V1/';
         const api: string = 'integration/';
         const method: string = 'admin/token';
         const url:string = magentoUrl + api + method;
