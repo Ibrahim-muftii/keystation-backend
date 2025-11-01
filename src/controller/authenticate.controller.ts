@@ -1,4 +1,3 @@
-"use client"
 import { Request, Response } from "express";
 import User from "../models/user";
 import bcrypt from 'bcrypt'
@@ -40,9 +39,8 @@ export const login = async  (req:Request, res:Response) => {
             lastName:user.lastName,
             email:user.email,
         };
-        const accessToken = jwt.sign(payload, process.env.JWT_SECRET as string, {expiresIn:'1day'});
+        const accessToken = jwt.sign(payload, process.env.JWT_SECRET as string, {expiresIn:'7days'});
         payload.accessToken = accessToken
-        res.cookie('AccessToken', accessToken, { httpOnly:true, secure:true, sameSite:'lax', maxAge:24 * 60 * 60 * 1000 })
         return res.status(200).json({message:"Logged in successfully", user:payload});
     } catch(error:any) {
         return res.status(500).json({message:error.message});
@@ -67,9 +65,8 @@ export const register = async (req:Request, res:Response) => {
             lastName:newUser.lastName,
             email:newUser.email,
         };
-        const accessToken = jwt.sign(payload, process.env.JWT_SECRET as string, {expiresIn:'1day'});
+        const accessToken = jwt.sign(payload, process.env.JWT_SECRET as string, {expiresIn:'7days'});
         payload.accessToken = accessToken;
-        res.cookie('AccessToken', accessToken, { httpOnly:true, secure:true, sameSite:'lax', maxAge:24 * 60 * 60 * 1000 })
         return res.status(200).json({message:"Registered successfully...", user:payload})
     } catch (error:any) {
         return res.status(500).json({message:error.message});
