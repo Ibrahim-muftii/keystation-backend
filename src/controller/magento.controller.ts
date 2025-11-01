@@ -1,151 +1,137 @@
 import { Request, Response } from "express"
+import { searchMagentoProducts, getMagentoProductBySku } from "../helpers/magento-api.helper";
 
-const mockData = [
-    {
-        id: 1,
-        name: "Wireless Bluetooth Earbuds",
-        productNumber: "WB-2024",
-        description: "High-quality wireless earbuds with noise cancellation and 24-hour battery life",
-        price: 79.99
-    },
-    {
-        id: 2,
-        name: "Smart Fitness Watch",
-        productNumber: "SF-2024",
-        description: "Advanced fitness tracker with heart rate monitoring, GPS, and sleep analysis",
-        price: 149.99
-    },
-    {
-        id: 3,
-        name: "Mechanical Gaming Keyboard",
-        productNumber: "MG-2024",
-        description: "RGB mechanical keyboard with customizable keys and rapid response technology",
-        price: 89.99
-    },
-    {
-        id: 4,
-        name: "Portable Power Bank",
-        productNumber: "PP-2024",
-        description: "20000mAh portable charger with fast charging and multiple USB ports",
-        price: 39.99
-    },
-    {
-        id: 5,
-        name: "Wireless Charging Stand",
-        productNumber: "WC-2024",
-        description: "Fast wireless charging stand compatible with all Qi-enabled devices",
-        price: 29.99
-    },
-    {
-        id: 6,
-        name: "Noise Cancelling Headphones",
-        productNumber: "NC-2024",
-        description: "Over-ear headphones with active noise cancellation and premium sound quality",
-        price: 199.99
-    },
-    {
-        id: 7,
-        name: "Smart Home Speaker",
-        productNumber: "SH-2024",
-        description: "Voice-controlled smart speaker with virtual assistant and home automation",
-        price: 99.99
-    },
-    {
-        id: 8,
-        name: "4K Action Camera",
-        productNumber: "AC-2024",
-        description: "Waterproof 4K camera with image stabilization for adventure photography",
-        price: 129.99
-    }
-]
-export const getMagentoProduct = (req:Request,res:Response) => {
-    try {   
-        const { name, productNumber, description } = req.query;
-        const product = mockData.find((product:any) => 
-            product.name == name ||
-            productNumber == productNumber ||
-            description == description
-        ) 
+export const getMagentoProduct = async (req:Request, res:Response) => {
+    try {
+        const { name, sku, productNumber } = req.query;
 
-        return product;
+        // If SKU or productNumber is provided, get product by SKU
+        if (sku || productNumber) {
+            const skuValue = (sku || productNumber) as string;
+            const product = await getMagentoProductBySku(skuValue);
+            return res.status(200).json({
+                success: true,
+                product: product
+            });
+        }
+
+        // If name is provided, search products by name
+        if (name) {
+            const searchCriteria = { name: name as string };
+            const result = await searchMagentoProducts(searchCriteria);
+            return res.status(200).json({
+                success: true,
+                products: result.items || [],
+                total_count: result.total_count || 0
+            });
+        }
+
+        // If no search criteria provided, return error
+        return res.status(400).json({
+            success: false,
+            message: "Please provide at least one search parameter (name, sku, or productNumber)"
+        });
 
     } catch (error:any) {
-        return res.status(500).json({message:error.message});
+        console.error("Error fetching Magento product:", error.response?.data || error.message);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch product from Magento",
+            error: error.response?.data || error.message
+        });
     }
 }
 
-const mockOrders = [
-    {
-        orderNumber: "ORD-1001",
-        customerName: "John Smith",
-        email: "john@example.com",
-        phone: "+15550000001",
-        status: "Shipped",
-    },
-    {
-        orderNumber: "ORD-1002",
-        customerName: "Emily Brown",
-        email: "emily@example.com",
-        phone: "+15550000002",
-        status: "Delivered",
-    },
-    {
-        orderNumber: "ORD-1003",
-        customerName: "Mark Johnson",
-        email: "mark@example.com",
-        phone: "+15550000003",
-        status: "Processing",
-    },
-];
-
 export const findOrderByCustomer = async (req: Request, res: Response) => {
     try {
-        const { customerName } = req.body; // Comes from Vapi function call payload
+        const { customerName, email } = req.query;
 
-        const order = mockOrders.find(
-            (o) => o.customerName.toLowerCase() === customerName.toLowerCase()
-        );
+        if (!customerName && !email) {
+            return res.status(400).json({
+                success: false,
+                message: "Please provide customerName or email parameter"
+            });
+        }
 
-        if (!order) {
-            return res.json({ success: false, message: "no match found" });
+        const searchCriteria: any = {};
+        if (customerName) searchCriteria.customerName = customerName as string;
+        if (email) searchCriteria.email = email as string;
+
+        const { searchMagentoOrders } = await import("../helpers/magento-api.helper");
+        const result = await searchMagentoOrders(searchCriteria);
+
+        if (!result.items || result.items.length === 0) {
+            return res.json({
+                success: false,
+                message: "No orders found for the provided customer"
+            });
         }
 
         return res.json({
             success: true,
-            orderNumber: order.orderNumber,
-            status: order.status,
+            orders: result.items,
+            total_count: result.total_count
         });
     } catch (error: any) {
+        console.error("Error finding orders:", error.response?.data || error.message);
         return res.status(500).json({
             success: false,
-            message: "server-error",
-            error: error.message,
+            message: "Failed to fetch orders from Magento",
+            error: error.response?.data || error.message
         });
     }
 };
 
 export const getOrderStatus = async (req: Request, res: Response) => {
     try {
-        const { orderNumber } = req.body; // Comes from Vapi function call payload
+        const { orderNumber, orderId } = req.query;
 
-        const order = mockOrders.find(
-            (o) => o.orderNumber.toLowerCase() === orderNumber.toLowerCase()
-        );
-
-        if (!order) {
-            return res.json({ success: false, message: "no match found" });
+        if (!orderNumber && !orderId) {
+            return res.status(400).json({
+                success: false,
+                message: "Please provide orderNumber or orderId parameter"
+            });
         }
 
-        return res.json({
-            success: true,
-            orderNumber: order.orderNumber,
-            status: order.status,
-        });
+        const { searchMagentoOrders, getMagentoOrderById } = await import("../helpers/magento-api.helper");
+
+        // If orderId is provided, get order by ID directly
+        if (orderId) {
+            const order = await getMagentoOrderById(orderId as string);
+            return res.json({
+                success: true,
+                order: order,
+                orderNumber: order.increment_id,
+                status: order.status
+            });
+        }
+
+        // If orderNumber is provided, search for the order
+        if (orderNumber) {
+            const result = await searchMagentoOrders({ incrementId: orderNumber as string });
+
+            if (!result.items || result.items.length === 0) {
+                return res.json({
+                    success: false,
+                    message: "No order found with the provided order number"
+                });
+            }
+
+            const order = result.items[0];
+            return res.json({
+                success: true,
+                order: order,
+                orderNumber: order.increment_id,
+                status: order.status
+            });
+        }
+
     } catch (error: any) {
+        console.error("Error fetching order status:", error.response?.data || error.message);
         return res.status(500).json({
             success: false,
-            message: "server-error",
-            error: error.message,
+            message: "Failed to fetch order status from Magento",
+            error: error.response?.data || error.message
         });
     }
 };

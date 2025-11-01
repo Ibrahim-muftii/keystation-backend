@@ -12,7 +12,7 @@ export interface UserPayload {
     firstName:string,
     lastName:string,
     email:string,
-} 
+}
 
 export interface UserIT extends Model  {
     id:string,
@@ -28,12 +28,12 @@ export const login = async  (req:Request, res:Response) => {
         const user:UserIT | null = await User.findOne({where:{email:body.email}}) as UserIT;
         if(!user) {
             return res.status(404).json({message:'User not found...'})
-        } 
+        }
         const validPassword:boolean = await bcrypt.compare(body.password, user.password);
         if(!validPassword) {
             return res.status(400).json({message:"Password does not match please try again"});
         }
-    
+
         const payload:any = {
             id:user.id,
             firstName:user.firstName,
@@ -58,7 +58,7 @@ export const register = async (req:Request, res:Response) => {
             return res.status(400).json({message:"User with this email already exists"});
         }
         const hashedPassword = await bcrypt.hash(body.password, 16);
-        
+
         body.password = hashedPassword;
         const newUser:UserIT = (await User.create(body) as UserIT).get({plain:true});
         const payload:any = {
@@ -77,23 +77,32 @@ export const register = async (req:Request, res:Response) => {
 }
 
 export const authenticateMagento = async (req:Request, res:Response) => {
-    try{    
-        const magentoUrl: string = 'https://keystation.co.uk/rest/V1/';
-        const api: string = 'integration/';
+    try{
+        const magentoUrl: string = process.env.MAGENTO_BASE_URL || 'https://keystation.co.uk';
+        const api: string = 'rest/V1/integration/';
         const method: string = 'admin/token';
-        const url:string = magentoUrl + api + method;
-        console.log("COmplete URL : ", url)
+        const url:string = magentoUrl + '/' + api + method;
+        console.log("Complete URL : ", url)
         const magentoCredentials:any = {
-            username:'Etechflow',
-            password: `1uV"'4KS@C4y`
+            username: process.env.MAGENTO_ADMIN_USERNAME || 'Etechflow',
+            password: process.env.MAGENTO_ADMIN_PASSWORD || `1uV"'4KS@C4y`
         }
         const response = await axios.post(url, magentoCredentials, {
             headers: { "Content-Type": "application/json" }
         })
-        console.log(response);
-        return res.status(200).send("OK")
+        console.log("Authentication successful:", response.data);
+        return res.status(200).json({
+            success: true,
+            message: "Magento authentication successful",
+            token: response.data
+        })
     } catch(error:any) {
-        return res.status(500).json({message:error});
+        console.error("Magento authentication error:", error.response?.data || error.message);
+        return res.status(500).json({
+            success: false,
+            message: "Magento authentication failed",
+            error: error.response?.data || error.message
+        });
     }
 }
 
@@ -118,9 +127,9 @@ export const magentoIdentity = async (req: Request, res: Response) => {
 
         const { success_call_back, oauth_consumer_key } = req.query;
 
-        const consumerSecret = 'v5p72krchl7z4k8zotmtvwpatk0r1alp';
+        const consumerSecret = process.env.MAGENTO_CONSUMER_SECRET || 'tus0bqemr5v5oa56opi0pgyrwtoskk1j';
 
-        const magentoUrl = 'https://keystation.co.uk';
+        const magentoUrl = process.env.MAGENTO_BASE_URL || 'https://keystation.co.uk';
         const endpoint = '/oauth/token/request';
         const url = magentoUrl + endpoint;
 
