@@ -46,7 +46,7 @@ app.use('/assistant', assistantRoutes);
 app.use('/user', userRoutes);
 app.use('/magento', magentoRoutes);
 
-server.listen(process.env.PORT, async () => {
+server.listen(parseInt(process.env.PORT!,10),"0.0.0.0" , async () => {
   console.log(`App listening on port ${process.env.PORT}`);
 
   try {
