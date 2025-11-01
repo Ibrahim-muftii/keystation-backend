@@ -11,7 +11,7 @@ export interface UserPayload {
     firstName:string,
     lastName:string,
     email:string,
-} 
+}
 
 export interface UserIT extends Model  {
     id:string,
@@ -27,12 +27,12 @@ export const login = async  (req:Request, res:Response) => {
         const user:UserIT | null = await User.findOne({where:{email:body.email}}) as UserIT;
         if(!user) {
             return res.status(404).json({message:'User not found...'})
-        } 
+        }
         const validPassword:boolean = await bcrypt.compare(body.password, user.password);
         if(!validPassword) {
             return res.status(400).json({message:"Password does not match please try again"});
         }
-    
+
         const payload:any = {
             id:user.id,
             firstName:user.firstName,
@@ -57,7 +57,7 @@ export const register = async (req:Request, res:Response) => {
             return res.status(400).json({message:"User with this email already exists"});
         }
         const hashedPassword = await bcrypt.hash(body.password, 16);
-        
+
         body.password = hashedPassword;
         const newUser:UserIT = (await User.create(body) as UserIT).get({plain:true});
         const payload:any = {

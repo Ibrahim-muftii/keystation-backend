@@ -19,7 +19,7 @@ const { server, io } = SetupSocket(app);
 io.on("connection", (socket) => {
     try {
         console.log("🟢 Socket Connected Successfully:", socket.id);
-      
+
         socket.on("disconnect", () => {
           console.log("🔴 Socket Disconnected:", socket.id);
         });
@@ -33,7 +33,7 @@ io.engine.on("connection_error", (err) => {
   console.log("⚠️ Socket connection error:", err.req.url, err.code);
 });
 
-app.set('io', io); 
+app.set('io', io);
 
 app.use(cors({
   origin: [process.env.CLIENT_URL as string],
@@ -46,7 +46,7 @@ app.use('/assistant', assistantRoutes);
 app.use('/user', userRoutes);
 app.use('/magento', magentoRoutes);
 
-server.listen(process.env.PORT, async () => {
+server.listen(parseInt(process.env.PORT!,10),"0.0.0.0" , async () => {
   console.log(`App listening on port ${process.env.PORT}`);
 
   try {
