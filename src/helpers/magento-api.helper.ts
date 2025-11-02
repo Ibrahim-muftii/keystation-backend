@@ -89,7 +89,7 @@ async function getAdminToken(): Promise<string> {
         cachedAdminToken = response.data;
         // Token expires in 4 hours, cache for 3.5 hours
         tokenExpiry = Date.now() + (3.5 * 60 * 60 * 1000);
-        return cachedAdminToken;
+        return cachedAdminToken!;
     } catch (error: any) {
         console.error('Failed to get admin token:', error.response?.data || error.message);
         throw error;

@@ -84,6 +84,10 @@ export const authenticateMagento = async (req:Request, res:Response) => {
             username: process.env.MAGENTO_ADMIN_USERNAME || 'Etechflow',
             password: process.env.MAGENTO_ADMIN_PASSWORD || `1uV"'4KS@C4y`
         }
+
+        console.log("MAgento : ", magentoCredentials);
+        
+
         const response = await axios.post(url, magentoCredentials, {
             headers: { "Content-Type": "application/json" }
         })
@@ -98,7 +102,7 @@ export const authenticateMagento = async (req:Request, res:Response) => {
         return res.status(500).json({
             success: false,
             message: "Magento authentication failed",
-            error: error.response?.data || error.message
+            error: error
         });
     }
 }
@@ -160,8 +164,9 @@ export const magentoIdentity = async (req: Request, res: Response) => {
         });
 
     } catch (error: any) {
+        console.log(error);
         console.log("error : ", error.response?.data || error.message);
-        return res.status(500).send("An Error has occurred");
+        return res.status(500).json({error});
     }
 }
 

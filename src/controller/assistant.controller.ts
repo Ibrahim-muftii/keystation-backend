@@ -160,6 +160,7 @@ export const upsertAssistant = async (req: Request, res: Response) => {
 		}
 
 	} catch (error: any) {
+		console.log("Error : " ,error)
 		console.log("Error : ", error?.response?.data?.message)
 		return res.status(500).json({ message: error.message })
 	}
