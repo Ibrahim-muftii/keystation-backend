@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { Request, response, Response } from "express";
 import axios from 'axios'
 import ApiKeys from "../models/apikey";
 import path from "path";
@@ -10,6 +10,7 @@ import crypto from 'crypto';
 import { uploadFilesInBatches } from "../helpers/vapi-file-upload.helper";
 import { assistantObject } from "../utlis/assisstant-data";
 import Vapi from "../models/vapi";
+import { getDuration } from "../helpers/assistant.helper";
 
 interface JobInfo {
 	id: string;
@@ -239,5 +240,38 @@ export const callCustomerFromAssistant = async (req:Request,res:Response) => {
 		}
 	} catch(error:any) {
 		return res.status(500).json({message:error.message});
+	}
+}
+
+export const getAssistantCallLogs = async (req:Request, res:Response) => {
+	try {
+		const user = req.CurrentUser;
+		const assistant = await ApiKeys.findOne({ where: { userId: user?.id }, attributes: ["vapiAssistantId", "vapiKey"], raw:true}) as any;
+		if (!assistant.vapiAssistantId) {
+			return res.status(404).json({message:"No assistant found, please configure assistant before preceeding further"});
+		}
+		const url: string = 'https://api.vapi.ai';
+		const api: string = `/call?assistantId=${assistant.vapiAssistantId}`;
+		const completeUrl:string = url + api;
+
+		const response = await axios.get(completeUrl, {
+			headers: {
+				Authorization:`Bearer ${assistant.vapiKey}`
+			}
+		})
+		let logs:any[] = [];
+		if(response.data.length) {
+			logs = response.data.map((log:any) => ({
+				type:log.type,
+				totalDuration: getDuration(log.startedAt, log.endedAt),
+				totalCost:log.cost,
+				recordingUrl:log.recordingUrl,
+				status:log.status
+			}))
+		}
+		return res.status(200).json({logs});		
+	} catch (error:any) {
+		console.log(error?.response?.data?.message)
+		return res.status(500).json({message:error?.response?.data?.message})
 	}
 }

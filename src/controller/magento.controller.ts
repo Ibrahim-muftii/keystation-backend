@@ -1,23 +1,30 @@
 import { Request, Response } from "express"
 import { searchMagentoProducts, getMagentoProductBySku } from "../helpers/magento-api.helper";
 
-export const getMagentoProduct = async (req:Request, res:Response) => {
+export const getMagentoProduct = async (req: Request, res: Response) => {
     try {
-        const { name, sku, productNumber } = req.query;
+        const { name, sku, brand, brandId, priceMin, priceMax,availability, status } = req.query;
 
-        // If SKU or productNumber is provided, get product by SKU
-        if (sku || productNumber) {
-            const skuValue = (sku || productNumber) as string;
-            const product = await getMagentoProductBySku(skuValue);
+        // If SKU is provided, get product by SKU (direct fetch)
+        if (sku) {
+            const product = await getMagentoProductBySku(sku as string);
             return res.status(200).json({
                 success: true,
-                product: product
+                product
             });
         }
 
-        // If name is provided, search products by name
-        if (name) {
-            const searchCriteria = { name: name as string };
+        // If any search filters provided, use search API
+        if (name || brandId || availability || status || priceMin || priceMax) {
+            const searchCriteria = {
+                name: name as string,
+                brand: brandId as string,
+                availability: availability as string,
+                status: status as string,
+                priceMin: priceMin as string,
+                priceMax:priceMax as string
+            };
+
             const result = await searchMagentoProducts(searchCriteria);
             return res.status(200).json({
                 success: true,
@@ -26,13 +33,12 @@ export const getMagentoProduct = async (req:Request, res:Response) => {
             });
         }
 
-        // If no search criteria provided, return error
         return res.status(400).json({
             success: false,
-            message: "Please provide at least one search parameter (name, sku, or productNumber)"
+            message: "Provide at least one search parameter: name, sku, brand, availability, or status"
         });
 
-    } catch (error:any) {
+    } catch (error: any) {
         console.error("Error fetching Magento product:", error.response?.data || error.message);
         return res.status(500).json({
             success: false,
@@ -40,7 +46,8 @@ export const getMagentoProduct = async (req:Request, res:Response) => {
             error: error.response?.data || error.message
         });
     }
-}
+};
+
 
 export const findOrderByCustomer = async (req: Request, res: Response) => {
     try {

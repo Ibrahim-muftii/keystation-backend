@@ -5,6 +5,7 @@ import { Model } from "sequelize";
 import jwt from 'jsonwebtoken'
 import axios from "axios";
 import crypto from 'crypto'
+import ApiKeys from "../models/apikey";
 
 export interface UserPayload {
     id:string,
@@ -108,13 +109,36 @@ export const authenticateMagento = async (req:Request, res:Response) => {
 }
 
 
-export const callbackMagento = async (req:Request, res:Response) => {
+export const saveMagentoDetails = async (req:Request, res:Response) => {
     try {
-        console.log("CALL BACK REQUEST ")
-        console.log("BODY : ", req.body);
-        console.log("PARAMS : ", req.params);
-        console.log("QUERY : ", req.query);
-        return res.send('OK');
+        const user = req.CurrentUser;
+        const body = req.body;
+        const magentoUrl: string = process.env.MAGENTO_BASE_URL || 'https://keystation.co.uk';
+        const api: string = 'rest/V1/integration/';
+        const method: string = 'admin/token';
+        const url: string = magentoUrl + '/' + api + method;
+        const magentoCredentials: any = {
+            username: body.username,
+            password: body.password
+        }
+        
+        const response = await axios.post(url, magentoCredentials, {
+            headers: { "Content-Type": "application/json" }
+        })
+
+        console.log("MAGENTO API : ",response);
+
+        const magento = await ApiKeys.update({
+                magentoUsername:magentoCredentials.username,
+                magentoPassword:magentoCredentials.password,
+            },
+            {   where:{
+                    userId:user?.id
+                }
+            }
+        )
+        
+        return res.status(200).json({message:"Authenticated Successfully"});
     } catch(error:any) {
         console.log(error.message);
         return res.status(500).json({message:error.message})

@@ -8,6 +8,7 @@ import { getTwilioClient } from "../configs/twilio.config";
 import Vapi from "../models/vapi";
 import { maskPhoneNumber } from "../utlis/mask-phone-number";
 import axios from "axios";
+import TwilioNumbers from "../models/twilioNumbers";
 
 
 export const getUserDetails =  async (req:Request, res:Response) => {
@@ -96,7 +97,9 @@ export const getApiKeys = async (req:Request, res:Response) => {
         const currUser = req.CurrentUser;
         const keys = await ApiKeys.findOne({where:{userId:currUser?.id}, raw:true});
         const vapi = await Vapi.findOne({where:{userId:currUser?.id}, raw:true,attributes:["phoneNumber"]}) as any;
-        return res.status(200).json({keys:{...keys,  phoneNumber:maskPhoneNumber(vapi.phoneNumber)}})
+        console.log(vapi);
+        
+        return res.status(200).json({keys:{...keys,  phoneNumber:maskPhoneNumber(vapi?.phoneNumber)}})
     } catch (error:any) {
         return res.status(500).json({message:error.message});
     }
@@ -105,26 +108,19 @@ export const getApiKeys = async (req:Request, res:Response) => {
 export const importTwilioNumber = async (req:Request,res:Response) => {
     try {
         const currUser = req.CurrentUser;
+        const number = req.body;
         const apiKey = await ApiKeys.findOne({
             where:{userId:currUser?.id},
-            attributes:["vapiKey", "twilioAccountId", "twilioAccessKey"],
-            raw:true
+            attributes: ["twilioAccountId", "twilioAccessKey", "vapiKey"],
+            raw:true,
         }) as any;
-        const client = getTwilioClient(apiKey.twilioAccountId, apiKey.twilioAccessKey);
-        if(!client) {
-            return res.status(400).json({message:"Invalid Credentials"});
-        }
-        const numbers = await client.incomingPhoneNumbers.list({pageSize:10});
-        if(!numbers.length) {
-            return res.status(404).json({message:"No Number Found"});
-        }
         const url:string = 'https://api.vapi.ai'
         const api:string = '/phone-number';
         const completeUrl:string = url + api;
 
         const response = await axios.post(completeUrl, {
             provider:"twilio",
-            number:numbers[0]?.phoneNumber,
+            number:number.label,
             twilioAccountSid: apiKey.twilioAccountId,
             twilioAuthToken:apiKey.twilioAccessKey
         }, {
@@ -133,13 +129,85 @@ export const importTwilioNumber = async (req:Request,res:Response) => {
             }
         })  
 
-        console.log(response.data.id);
-
         await Vapi.update({ phoneNumberId: response.data.id, phoneNumber:response.data.number }, { where: { userId: currUser?.id, } })
         return res.status(200).json({message:"Number added successfully"})
 
     } catch (error:any){
         console.log(error);
+        return res.status(500).json({ message: error.response.data.message || error.message });
+    }
+}
+
+export const getTwilionNumbers = async (req:Request, res:Response) => {
+    try {
+        const user = req.CurrentUser;
+        const apiKey = await ApiKeys.findOne({where:{userId:user?.id}}) as any;
+        const client = getTwilioClient(apiKey.twilioAccountId, apiKey.twilioAccessKey);
+        if (!client) {
+            return res.status(400).json({ message: "Invalid Credentials" });
+        }
+        const numbers = await client.incomingPhoneNumbers.list();
+        const numberOptions = numbers.map(number => ({
+            label: number.phoneNumber,
+            value: number.sid
+        }));
+        return res.status(200).json({numbers:numberOptions});   
+    } catch(error:any) {
+        return res.status(500).json({message:error.message});
+    }
+}
+
+export const verifyMagentoDetailsExists = async (req:Request, res:Response) => {
+    try {
+        const user = req.CurrentUser;
+        const magento = await ApiKeys.findOne({where:{userId:user?.id}}) as any;
+        if(magento?.magentoUsername) {
+            return res.status(200).json({exists:true})
+        } else {
+            return res.status(200).json({exists:false});
+        }
+    } catch (error:any) {
         return res.status(500).json({ message: error.message });
     }
 }
+
+export const getNumbers = async (req:Request, res:Response) => {
+    try {
+        const user = req.CurrentUser;
+        const numbers = await TwilioNumbers.findAll({
+            where:{userId:user?.id}
+        })
+
+        return res.status(200).json({numbers});
+    } catch (error:any) {
+        return res.status(500).json({message:error.message});
+    }
+}
+
+export const saveTwilioNumber = async (req:Request, res:Response) => {
+    try {
+        const user = req.CurrentUser;
+        const body = req.body;
+        const payload = {
+            phoneNumber:body.number,
+            userId:user?.id
+        }
+        const number = await TwilioNumbers.create(payload)
+        return res.status(200).json({message:"Number Saved Successfully"})
+    } catch (error:any) {
+        return res.status(500).json({message:error.message});
+    }
+}
+
+export const deleteNumber = async (req:Request,res:Response) => {
+    try {
+        const body = req.body;
+        const deletedNumber = await TwilioNumbers.destroy({
+            where:{id:body.id}
+        });
+        return res.status(200).json({message:"Number deleted successfully..."})
+    }catch(error:any) {
+        return res.status(509).json({message:error.message});
+    }
+}
+

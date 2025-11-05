@@ -116,7 +116,7 @@ export async function magentoApiRequest(
         headers: {
             'Authorization': `Bearer ${token}`,
             'Content-Type': 'application/json',
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'User-Agent': ' ',
             'Accept': 'application/json',
             'Accept-Language': 'en-US,en;q=0.9',
             'Cache-Control': 'no-cache'
@@ -137,34 +137,76 @@ export async function magentoApiRequest(
 }
 
 /**
- * Search products in Magento
+ * Search products in Magento with support for name, SKU, and category
  */
 export async function searchMagentoProducts(searchCriteria: any): Promise<any> {
     const queryParams = new URLSearchParams();
+    let filterGroupIndex = 0;
 
+    // Search by product name
     if (searchCriteria.name) {
-        queryParams.append('searchCriteria[filterGroups][0][filters][0][field]', 'name');
-        queryParams.append('searchCriteria[filterGroups][0][filters][0][value]', `%${searchCriteria.name}%`);
-        queryParams.append('searchCriteria[filterGroups][0][filters][0][conditionType]', 'like');
+        queryParams.append(`searchCriteria[filterGroups][${filterGroupIndex}][filters][0][field]`, 'name');
+        queryParams.append(`searchCriteria[filterGroups][${filterGroupIndex}][filters][0][value]`, `%${searchCriteria.name}%`);
+        queryParams.append(`searchCriteria[filterGroups][${filterGroupIndex}][filters][0][conditionType]`, 'like');
+        filterGroupIndex++;
     }
 
-    if (searchCriteria.sku) {
-        const index = searchCriteria.name ? 1 : 0;
-        queryParams.append(`searchCriteria[filterGroups][${index}][filters][0][field]`, 'sku');
-        queryParams.append(`searchCriteria[filterGroups][${index}][filters][0][value]`, `%${searchCriteria.sku}%`);
-        queryParams.append(`searchCriteria[filterGroups][${index}][filters][0][conditionType]`, 'like');
+    // Search by brand (custom attribute)
+    if (searchCriteria.brand) {
+        queryParams.append(`searchCriteria[filterGroups][${filterGroupIndex}][filters][0][field]`, 'brands');
+        queryParams.append(`searchCriteria[filterGroups][${filterGroupIndex}][filters][0][value]`, `%${searchCriteria.brand}%`);
+        queryParams.append(`searchCriteria[filterGroups][${filterGroupIndex}][filters][0][conditionType]`, 'like');
+        filterGroupIndex++;
     }
+
+    // Filter by product availability (stock status)
+    if (searchCriteria.availability) {
+        queryParams.append(`searchCriteria[filterGroups][${filterGroupIndex}][filters][0][field]`, 'stock_status');
+        queryParams.append(`searchCriteria[filterGroups][${filterGroupIndex}][filters][0][value]`, searchCriteria.availability.toLowerCase() === 'in_stock' ? '1' : '0');
+        queryParams.append(`searchCriteria[filterGroups][${filterGroupIndex}][filters][0][conditionType]`, 'eq');
+        filterGroupIndex++;
+    }
+
+    // Filter by product status (enabled / disabled)
+    if (searchCriteria.status) {
+        queryParams.append(`searchCriteria[filterGroups][${filterGroupIndex}][filters][0][field]`, 'status');
+        queryParams.append(`searchCriteria[filterGroups][${filterGroupIndex}][filters][0][value]`, searchCriteria.status.toLowerCase() === 'enabled' ? '1' : '2');
+        queryParams.append(`searchCriteria[filterGroups][${filterGroupIndex}][filters][0][conditionType]`, 'eq');
+        filterGroupIndex++;
+    }
+
+    // Pagination defaults
+    queryParams.append('searchCriteria[pageSize]', '20');
+    queryParams.append('searchCriteria[currentPage]', '1');
 
     const endpoint = `/rest/V1/products?${queryParams.toString()}`;
     return await magentoApiRequest(endpoint, 'GET');
 }
 
+
 /**
- * Get product by SKU
+ * Get product by SKU with stock information
  */
 export async function getMagentoProductBySku(sku: string): Promise<any> {
     const endpoint = `/rest/V1/products/${encodeURIComponent(sku)}`;
     return await magentoApiRequest(endpoint, 'GET');
+}
+
+/**
+ * Get stock status for a product by SKU
+ */
+export async function getProductStockStatus(sku: string): Promise<any> {
+    try {
+        const endpoint = `/rest/V1/stockStatuses/${encodeURIComponent(sku)}`;
+        return await magentoApiRequest(endpoint, 'GET');
+    } catch (error) {
+        // If stockStatuses endpoint doesn't work, fall back to product data
+        const product = await getMagentoProductBySku(sku);
+        return {
+            stock_status: product.extension_attributes?.stock_item?.is_in_stock ? 1 : 0,
+            qty: product.extension_attributes?.stock_item?.qty || 0
+        };
+    }
 }
 
 /**

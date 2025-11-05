@@ -1,7 +1,5 @@
 import { DataTypes } from "sequelize";
 import { sequelize } from "../configs/database.config";
-import User from "./user";
-import { twilio } from "@elevenlabs/elevenlabs-js/api/resources/conversationalAi";
 
 
 const ApiKeys = sequelize.define("apikeys", {
@@ -22,6 +20,14 @@ const ApiKeys = sequelize.define("apikeys", {
         allowNull:true
     },
     elevenLabKey: {
+        type:DataTypes.STRING,
+        allowNull:true
+    },
+    magentoUsername: {
+        type:DataTypes.STRING,
+        allowNull:true
+    },
+    magentoPassword:{
         type:DataTypes.STRING,
         allowNull:true
     },
