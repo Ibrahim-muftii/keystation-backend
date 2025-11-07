@@ -103,8 +103,6 @@ export const uploadFilesToVapi = async (req: Request, res: Response) => {
 				jobStore[jobId].status = "uploading";
 				io.emit("jobUpdate", { jobId, status: "uploading", total: allFiles.length });
 
-				allFiles = allFiles.slice(0, 10);
-
 				const batchSize = 10;
 
 				for (let i = 0; i < allFiles.length; i += batchSize) {
@@ -133,18 +131,46 @@ export const upsertAssistant = async (req: Request, res: Response) => {
 		const user = req.CurrentUser;
 		const apiKeys = await ApiKeys.findOne({ where: { userId: user?.id } }) as any;
 		const vapi = await Vapi.findOne({ where: { userId: user?.id } });
+
+		if (!apiKeys?.vapiKey) {
+			return res.status(400).json({ message: "VAPI API key not found. Please configure your VAPI key first." });
+		}
+
 		if (vapi) {
 			return res.status(400).json({ message: "Assistant Already Created..." });
 		}
 
 		const url: string = 'https://api.vapi.ai';
 		const api: string = '/assistant';
-		const completeUrl: string = url + api;
-		const response = await axios.post(completeUrl, assistantObject, {
-			headers: {
-			"Content-Type": "application/json",
-			Authorization: `Bearer ${apiKeys.vapiKey}`
 
+		// First, try to fetch the existing assistant from VAPI
+		const existingAssistantId = 'bf725601-dee8-4acb-a076-96e60e207aad';
+		let assistantData = { ...assistantObject };
+
+		try {
+			const existingAssistant = await axios.get(`${url}${api}/${existingAssistantId}`, {
+				headers: {
+					"Content-Type": "application/json",
+					Authorization: `Bearer ${apiKeys.vapiKey}`
+				}
+			});
+
+			if (existingAssistant.data) {
+				console.log("Found existing assistant in VAPI, using its configuration");
+				// Use the existing assistant's data, but remove fields that shouldn't be copied
+				const { id, orgId, createdAt, updatedAt, isServerUrlSecretSet, ...existingData } = existingAssistant.data;
+				assistantData = existingData;
+			}
+		} catch (fetchError: any) {
+			console.log("Could not fetch existing assistant, will use default config:", fetchError?.response?.data?.message || fetchError.message);
+		}
+
+		// Create the assistant with the configuration
+		const completeUrl: string = url + api;
+		const response = await axios.post(completeUrl, assistantData, {
+			headers: {
+				"Content-Type": "application/json",
+				Authorization: `Bearer ${apiKeys.vapiKey}`
 			}
 		})
 
@@ -154,16 +180,16 @@ export const upsertAssistant = async (req: Request, res: Response) => {
 			await apiKeys.update({ vapiAssistantId: response.data.id })
 			const assistant = await Vapi.create({
 				vapiAssistantId: response.data.id,
-				vapiAssistantName: assistantObject.name,
+				vapiAssistantName: response.data.name || assistantData.name,
 				userId: user?.id
 			})
-			return res.status(200).json({ message: "Assisstant Created Successfully..." })
+			return res.status(200).json({ message: "Assistant Created Successfully..." })
 		}
 
 	} catch (error: any) {
 		console.log("Error : " ,error)
 		console.log("Error : ", error?.response?.data?.message)
-		return res.status(500).json({ message: error.message })
+		return res.status(500).json({ message: error?.response?.data?.message || error.message })
 	}
 }
 
