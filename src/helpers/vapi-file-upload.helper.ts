@@ -52,42 +52,19 @@ export const transcribeFiles = async (filePath: string, elevenLabKey: string) =>
 		return {
 			success: true,
 			name: path.basename(filePath),
-			outputPath,   };
+			outputPath,
+		};
 	} catch (error: any) {
 		console.error(`❌ Error transcribing ${path.basename(filePath)}:`, error.message);
 		return { success: false, name: path.basename(filePath) };
 	}
 };
 
-export const uploadFileToKnowledgeBase = async (fileIds:string[], vapiKey:string, assistantId:string) => {
-	try {
-		const payload = {
-			model: {
-				knowledgeBase: {
-					provider: "custom-knowledge-base",
-					fileIds: fileIds
-				}
-			}
-		};
-
-		const serverUrl: string = 'https://api.vapi.ai/assistant/' + assistantId;
-		const resposnse = await axios.patch(serverUrl,payload, {
-			headers: {
-				Authorization:`Bearer ${vapiKey}`
-			}
-		})
-		return { success:true };
-	} catch (error) {
-		console.log(error);
-		return { success:false }
-	}
-}
 
 export const uploadFilesInBatches = async (
 	filePaths: string[],
 	vapiKey: string,
 	elevenLabKey: string,
-	assistantId:string,
 	batchSize = 10
 ) => {
 	const results: any[] = [];
@@ -103,12 +80,10 @@ export const uploadFilesInBatches = async (
 		const uploads = await Promise.all(
 			transcriptions
 				.filter((t) => t.success)
-				.map((t) => uploadFileToVapi(t.outputPath!, vapiKey)) 
+				.map((t) => uploadFileToVapi(t.outputPath!, vapiKey))
 		);
-		const filesId = uploads.map((upload) => upload.id);
+
 		results.push(...uploads);
-		console.log("Uploading To Knowledge Base")
-		const response = await uploadFileToKnowledgeBase(filesId, vapiKey, assistantId);
 	}
 
 	return results;

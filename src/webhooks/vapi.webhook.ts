@@ -2,55 +2,119 @@ import axios from "axios";
 import { Request, Response } from "express";
 import TwilioNumbers from "../models/twilioNumbers";
 
+// Track transfer attempts per call
+const transferAttempts = new Map<string, number>();
+
 export const vapiWebhook = async (req: Request, res: Response) => {
     try {
-        const { message } = req.body;
+        const { message, call } = req.body;
+        const callId = call?.id;
 
-        console.log("WEBHOOK CALLED - Type:", message?.type);
+        console.log("WEBHOOK CALLED - Type:", message?.type, "Call ID:", callId);
 
         // ============================================
         // HANDLE TRANSFER DESTINATION REQUEST
         // ============================================
         if (message?.type === 'transfer-destination-request') {
-            console.log("🔄 Transfer destination requested");
+            console.log("🔄 Transfer destination requested for call:", callId);
 
             try {
+                // Get all available phone numbers from database
                 const numbers = await TwilioNumbers.findAll({
                     attributes: ["id", "phoneNumber"],
                     order: [['id', 'ASC']],
                     raw: true
                 }) as any[];
 
-                console.log("📞 Found numbers:", numbers.length);
+                console.log("📞 Found numbers in DB:", numbers.length);
 
-                if (numbers && numbers.length > 0) {
-                    const transferDestinations = numbers.map((num: any, index: number) => ({
-                        type: "number",
-                        number: num.phoneNumber,
-                        message: "Connecting you to our support specialist. Please hold.",
-                        description: `Support Specialist ${index + 1}`
-                    }));
-
-                    console.log("✅ Returning destinations:", JSON.stringify(transferDestinations, null, 2));
-
+                if (!numbers || numbers.length === 0) {
+                    console.log("❌ No transfer numbers available in database");
                     return res.status(200).json({
-                        destinations: transferDestinations
-                    });
-                } else {
-                    console.log("❌ No transfer numbers available");
-                    return res.status(200).json({
-                        destination: null
+                        destination: {
+                            type: "number",
+                            number: "+1234567890", // Fallback number
+                            message: "All specialists are currently unavailable. Please try again later."
+                        }
                     });
                 }
 
+                // Get current attempt count for this call
+                const currentAttempt = transferAttempts.get(callId) || 0;
+
+                console.log(`📊 Current attempt: ${currentAttempt + 1} of ${numbers.length}`);
+
+                // If we've exhausted all numbers
+                if (currentAttempt >= numbers.length) {
+                    console.log("❌ All transfer attempts exhausted");
+                    transferAttempts.delete(callId);
+
+                    return res.status(200).json({
+                        destination: {
+                            type: "number",
+                            number: numbers[0].phoneNumber, // Try first number again as last resort
+                            message: "All our specialists are currently assisting other customers. We'll try connecting you one more time."
+                        }
+                    });
+                }
+
+                // Get the next number to try
+                const numberToTry = numbers[currentAttempt].phoneNumber;
+
+                // Increment attempt counter for next time
+                transferAttempts.set(callId, currentAttempt + 1);
+
+                console.log(`✅ Attempting transfer to: ${numberToTry} (Attempt ${currentAttempt + 1})`);
+
+                // Return single destination (Vapi will automatically retry if this fails)
+                return res.status(200).json({
+                    destination: {
+                        type: "number",
+                        number: numberToTry,
+                        message: currentAttempt === 0
+                            ? "Connecting you to a specialist. Please hold."
+                            : "That line was busy. Trying another specialist. Please hold.",
+                        description: `Support Specialist ${currentAttempt + 1}`
+                    }
+                });
+
             } catch (dbError: any) {
                 console.error("❌ Database error:", dbError);
-                return res.status(200).json({
-                    destination: null
+                return res.status(500).json({
+                    error: "Database connection failed"
                 });
             }
         }
 
+        // ============================================
+        // HANDLE TRANSFER UPDATE (Monitor success/failure)
+        // ============================================
+        if (message?.type === 'transfer-update') {
+            const { status, toNumber } = message;
+            console.log(`📞 Transfer update - Status: ${status}, To: ${toNumber}, Call: ${callId}`);
+
+            if (status === 'connecting') {
+                console.log(`🔄 Attempting to connect to ${toNumber}...`);
+            }
+
+            if (status === 'complete' || status === 'completed') {
+                console.log(`✅ Transfer successful to ${toNumber}!`);
+                // Clean up tracking
+                transferAttempts.delete(callId);
+            }
+
+            if (status === 'failed' || status === 'cancelled' || status === 'no-answer') {
+                console.log(`❌ Transfer failed to ${toNumber} - Status: ${status}`);
+                console.log(`📊 Will retry with next number on next destination request`);
+                // Don't delete attempts - let it retry with next number
+            }
+
+            return res.status(200).json({ received: true });
+        }
+
+        // ============================================
+        // HANDLE TOOL CALLS
+        // ============================================
         if (message?.type === 'tool-calls') {
             const { toolCalls } = message;
             console.log("🔧 Tool Calls:", toolCalls.length);
@@ -65,9 +129,14 @@ export const vapiWebhook = async (req: Request, res: Response) => {
                         const { reason } = toolCall.function.arguments;
                         console.log("🔄 Transfer requested - Reason:", reason);
 
+                        // Initialize attempt counter for this call
+                        if (!transferAttempts.has(callId)) {
+                            transferAttempts.set(callId, 0);
+                        }
+
                         return {
                             toolCallId: toolCall.id,
-                            result: "Transferring now. Please hold."
+                            result: "Transfer initiated. Connecting you to a specialist now."
                         };
                     }
 
@@ -80,8 +149,7 @@ export const vapiWebhook = async (req: Request, res: Response) => {
 
                         try {
                             const orderResponse = await axios.get(
-                                `http://localhost:5400/magento/get-order-status?${orderNumber ? `orderNumber=${orderNumber}` : `orderId=${orderId}`
-                                }`
+                                `http://localhost:5400/magento/get-order-status?${orderNumber ? `orderNumber=${orderNumber}` : `orderId=${orderId}`}`
                             );
 
                             const orderData = orderResponse.data;
@@ -137,7 +205,7 @@ INITIAL_RESPONSE: Order ${orderData.orderNumber} - ${orderData.status}. ${orderD
                     }
 
                     // ============================================
-                    // PRODUCT SEARCH FUNCTION (ENHANCED WITH ALL FILTERS)
+                    // PRODUCT SEARCH FUNCTION
                     // ============================================
                     if (toolCall.function.name === 'searchProduct') {
                         console.log("🔍 Product search:", toolCall.function.arguments);
@@ -298,29 +366,26 @@ ${productsList}`;
             return res.status(200).json({ results });
         }
 
-        // ============================================
-        // HANDLE TRANSFER UPDATE
-        // ============================================
-        if (message?.type === 'transfer-update') {
-            console.log("📞 Transfer status:", message.status);
-
-            if (message.status === 'complete') {
-                console.log("✅ Transfer successful!");
-            } else if (message.status === 'failed') {
-                console.log("❌ Transfer failed - all numbers unavailable");
-            }
-
-            return res.status(200).json({ received: true });
-        }
-
+        // Handle other message types
         return res.status(200).json({ received: true });
 
     } catch (error: any) {
         console.error("❌ VAPI webhook error:", error);
-        return res.status(200).json({
-            results: [{
-                result: "Sorry, I encountered an error processing your request."
-            }]
+        return res.status(500).json({
+            error: "Internal server error"
         });
     }
 };
+
+// Optional: Clean up old attempt tracking (run periodically)
+setInterval(() => {
+    const now = Date.now();
+    const CLEANUP_AGE = 600000; // 10 minutes
+
+    for (const [callId, timestamp] of transferAttempts.entries()) {
+        if (now - (timestamp as any) > CLEANUP_AGE) {
+            console.log(`🧹 Cleaning up old transfer attempt for call: ${callId}`);
+            transferAttempts.delete(callId);
+        }
+    }
+}, 60000); // Run every minute

@@ -171,7 +171,7 @@ Functions:
 When user mentions a brand, extract the brand ID from this list:
 
 BRAND_ID_MAP = {
-  "Abarth": "609", "Alfa Romeo": "509", "Aprilia": "510", "Audi": "511", 
+  "Abarth": "609", "Alfa Romeo": "509", "Aprilia": "510", "Audi": "511",
   "Aston Martin": "910", "Bentley": "512", "BMW": "513", "British Leyland": "947",
   "Buick": "514", "BYD": "1627", "Cadillac": "515", "Caterpillar": "818",
   "Cessna": "944", "Chery": "1628", "Chevrolet": "516", "Chrysler": "517",
@@ -427,98 +427,9 @@ END OF SYSTEM PROMPT
 `
       }
     ],
-    functions: [
-      {
-        name: "getOrderStatus",
-        description: "Get order status by order number. Customer provides order number.",
-        parameters: {
-          type: "object",
-          properties: {
-            orderNumber: {
-              type: "string",
-              description: "Order number provided by customer"
-            },
-            orderId: {
-              type: "string",
-              description: "Magento order ID if available"
-            }
-          },
-        },
-      },
-      {
-        name: "searchProduct",
-        description: "Search products with multiple filters: name, SKU, category, BRAND (with brandId), price range. Extract brand from user's query and use corresponding brandId from the BRAND_ID_MAP. Use this when customer asks about products or mentions any vehicle brand.",
-        parameters: {
-          type: "object",
-          properties: {
-            name: {
-              type: "string",
-              description: "Product name or partial name (e.g., 'key', 'remote', 'fob')"
-            },
-            sku: {
-              type: "string",
-              description: "Product SKU"
-            },
-            productNumber: {
-              type: "string",
-              description: "Product number"
-            },
-            category: {
-              type: "string",
-              description: "Product category (e.g., 'keys', 'remotes', 'accessories')"
-            },
-            brand: {
-              type: "string",
-              description: "Vehicle brand name (e.g., 'BMW', 'Ford', 'Audi'). Must match BRAND_ID_MAP."
-            },
-            brandId: {
-              type: "string",
-              description: "Vehicle brand ID from BRAND_ID_MAP (e.g., '513' for BMW, '527' for Ford). REQUIRED when brand is provided."
-            },
-            priceMin: {
-              type: "string",
-              description: "Minimum price filter (e.g., '20', '50')"
-            },
-            priceMax: {
-              type: "string",
-              description: "Maximum price filter (e.g., '100', '200')"
-            }
-          },
-        }
-      },
-      {
-        name: "checkAvailability",
-        description: "Check if a specific product is in stock. Use when customer asks 'is [product] available?', 'do you have [product] in stock?'",
-        parameters: {
-          type: "object",
-          properties: {
-            productName: {
-              type: "string",
-              description: "Product name to check availability"
-            },
-            sku: {
-              type: "string",
-              description: "Product SKU to check availability"
-            }
-          },
-        }
-      },
-      {
-        name: "transferCall",
-        description: "Transfer to specialist. USE ONLY AS LAST RESORT after multiple genuine attempts to solve the problem yourself. Get user confirmation first.",
-        parameters: {
-          type: "object",
-          properties: {
-            reason: {
-              type: "string",
-              description: "Specific reason for transfer after multiple attempts (e.g., 'user requested after 3 attempts', 'system error preventing order lookup', 'complex technical issue beyond capability')"
-            }
-          },
-          required: ["reason"]
-        }
-      }
-    ]
+    // Remove functions array - it's deprecated
   },
+
   startSpeakingPlan: {
     waitSeconds: 0.8,
     smartEndpointingEnabled: true,

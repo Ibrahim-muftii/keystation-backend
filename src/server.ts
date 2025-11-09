@@ -7,6 +7,7 @@ import authenticationRoutes from './router/authentication.router';
 import assistantRoutes from './router/assistant.router';
 import userRoutes from './router/user.router';
 import magentoRoutes from './router/magento.router';
+import fileRoutes from './router/file.router';
 
 import { runAssocations } from './models/associations';
 import { SetupSocket } from './configs/socketIo.config';
@@ -45,6 +46,7 @@ app.use('/authentication', authenticationRoutes);
 app.use('/assistant', assistantRoutes);
 app.use('/user', userRoutes);
 app.use('/magento', magentoRoutes);
+app.use("/",fileRoutes);
 
 server.listen(parseInt(process.env.PORT!,10),"0.0.0.0" , async () => {
   console.log(`App listening on port ${process.env.PORT}`);
