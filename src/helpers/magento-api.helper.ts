@@ -84,7 +84,7 @@ async function getAdminToken(): Promise<string> {
                     'Content-Type': 'application/json',
                     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
                 },
-                httpAgent
+                httpsAgent:httpAgent
                 
             }
         );
@@ -124,7 +124,7 @@ export async function magentoApiRequest(
             'Accept-Language': 'en-US,en;q=0.9',
             'Cache-Control': 'no-cache'
         },
-        httpAgent
+        httpsAgent:httpAgent
     };
 
     if (data && (method === 'POST' || method === 'PUT')) {
