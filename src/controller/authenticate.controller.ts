@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken'
 import axios from "axios";
 import crypto from 'crypto'
 import ApiKeys from "../models/apikey";
+import https from "https";
 
 export interface UserPayload {
     id:string,
@@ -87,10 +88,11 @@ export const authenticateMagento = async (req:Request, res:Response) => {
         }
 
         console.log("MAgento : ", magentoCredentials);
-        
+        const httpsAgent = new https.Agent({ rejectUnauthorized: false });
 
         const response = await axios.post(url, magentoCredentials, {
-            headers: { "Content-Type": "application/json" }
+            headers: { "Content-Type": "application/json" },
+            httpsAgent
         })
         console.log("Authentication successful:", response.data);
         return res.status(200).json({
@@ -175,7 +177,7 @@ export const magentoIdentity = async (req: Request, res: Response) => {
         const response = await axios.post(url, null, {
             headers: {
                 'Authorization': authHeader
-            }
+            },
         });
 
         console.log("Response:", response.data);
@@ -247,3 +249,12 @@ function parseQueryString(str: string): any {
     });
     return params;
 }
+
+
+// export const connectToFacebook = async (req:Request,res:Response) => {
+//     try {
+//         const url:string = 'https://graph.      '
+//     } catch(error:any) {
+//         return res.status(500).json({message:error.message});
+//     } 
+// }

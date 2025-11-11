@@ -149,3 +149,5 @@ transcriptions/
 # Build directories (if using build tools)
 dist/
 build/
+combined_calls
+script.py
