@@ -1,6 +1,6 @@
 import axios, { AxiosRequestConfig } from 'axios';
 import crypto from 'crypto';
-
+import https from 'https';
 /**
  * Magento API Helper
  * Provides utility functions for making authenticated requests to Magento API
@@ -74,6 +74,7 @@ async function getAdminToken(): Promise<string> {
         throw new Error('Magento admin credentials not configured');
     }
 
+    const httpAgent = new https.Agent({ rejectUnauthorized: false });
     try {
         const response = await axios.post(
             `${baseUrl}/rest/V1/integration/admin/token`,
@@ -82,7 +83,9 @@ async function getAdminToken(): Promise<string> {
                 headers: {
                     'Content-Type': 'application/json',
                     'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
-                }
+                },
+                httpAgent
+                
             }
         );
 
@@ -109,7 +112,7 @@ export async function magentoApiRequest(
 
     // Get admin token
     const token = await getAdminToken();
-
+    const httpAgent = new https.Agent({ rejectUnauthorized: false })
     const config: AxiosRequestConfig = {
         method,
         url,
@@ -120,7 +123,8 @@ export async function magentoApiRequest(
             'Accept': 'application/json',
             'Accept-Language': 'en-US,en;q=0.9',
             'Cache-Control': 'no-cache'
-        }
+        },
+        httpAgent
     };
 
     if (data && (method === 'POST' || method === 'PUT')) {
