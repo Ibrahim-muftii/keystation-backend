@@ -569,7 +569,9 @@ export const getAssistantCallLogs = async (req:Request, res:Response) => {
 				totalDuration: getDuration(log.startedAt, log.endedAt),
 				totalCost:log.cost,
 				recordingUrl:log.recordingUrl,
-				status:log.status
+				status:log.status,
+				messages:log.messages,
+				summary:log.analysis.summary
 			}))
 		}
 		return res.status(200).json({logs});		
